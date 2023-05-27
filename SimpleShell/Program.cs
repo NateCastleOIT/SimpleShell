@@ -17,8 +17,8 @@ namespace SimpleShell
         static void Main(string[] args)
         {
             //TestTerminalDriver();
-            TestTerminal();
-            //TestSecuritySystem();
+            //TestTerminal();
+            TestSecuritySystem();
             //TestSessionManager();
         }
 
@@ -82,10 +82,15 @@ namespace SimpleShell
             Terminal term = new Terminal(driver);
             term.Connect();
 
-            term.Write("Enter some text: ");
-            term.Echo = true;
-            string s1 = term.ReadLine();
-            term.WriteLine("You entered: " + s1);
+            while (true)
+            {
+                term.Write("Enter some text: ");
+                term.Echo = true;
+                string s1 = term.ReadLine();
+                term.WriteLine("You entered: " + s1);
+                if (s1 == "quit")
+                    break;
+            }
 
             term.Disconnect();
         }

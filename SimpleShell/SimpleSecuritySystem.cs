@@ -66,68 +66,105 @@ namespace SimpleShell
 
         public int AddUser(string username)
         {
-            // create a new user with default home directory and shell
-            // initially empty password
-            // create user's home directory if needed
-            // return user id
-            // save the user to the password file
-            // TODO
+            // validate username
+            if (UserByName(username) != null)
+                throw new Exception("User already exists");
 
-            return 0;
+            // create a new user with default home directory and shell
+
+            User u = new User();
+            int userId = nextUserID++;
+
+            u.userID = userId;
+            u.userName = username;
+            u.password = "";
+            u.homeDirectory = "/users/" + username;
+            u.shell = "pshell";
+            usersById[userId] = u;
+
+            if (filesystem != null)
+            {
+                // TODO: create user's home directory
+            }
+
+            // save the user to the password file
+
+            // return user id
+            return nextUserID;
         }
 
         public int UserID(string username)
         {
             // lookup user by username and return user id
-            // TODO
-            return 0;
+            // validate username exists
+            User u = UserByName(username) ?? throw new Exception("User doesn't exist by that username!");
+
+            return u.userID;
         }
 
         public bool NeedsPassword(string username)
-        {
-            // return true if user needs a password set
-            // TODO
-            return false;
+        { 
+            // validate username exists
+            User u = UserByName(username) ?? throw new Exception("User doesn't exist by that username!");
+
+
+            return string.IsNullOrEmpty(u.password);
         }
 
         public void SetPassword(string username, string password)
         {
-            // set user's password
-            // validate it meets any rules
-            // save it to the password file
-            // TODO
+            // validate username exists
+            User u = UserByName(username) ?? throw new Exception("User doesn't exist by that username!");
+
+
+            // validate password meets rules
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 3)
+                throw new Exception("Password must be at least 3 characters long!");
+
+            u.password = password;
+
+            //TODO: save it to the password file
         }
 
         public int Authenticate(string username, string password)
         {
             // authenticate user by username/password
-            // return user id
-            // TODO
+            // return user id or throw an Exception if failed
 
-            return 0;
+            User u = UserByName(username) ?? throw new Exception("User doesn't exist by that username!");
+
+            if (u.password != password)
+                throw new Exception("Invalid password for user!");
+
+            return u.userID;
         }
 
         public string UserName(int userID)
         {
             // lookup user by user id and return username
-            // TODO
-            return null;
+            // validate userID exists
+            User u = usersById.ContainsKey(userID) ? usersById[userID] : throw new Exception("User doesn't exist by that ID!");
+
+            return u.userName;
         }
 
         public string UserHomeDirectory(int userID)
         {
             // lookup user by user id and return home directory
             // TODO
+            // validate userID exists
+            User u = usersById.ContainsKey(userID) ? usersById[userID] : throw new Exception("User doesn't exist by that ID!");
 
-            return null;
+            return u.homeDirectory;
         }
 
         public string UserPreferredShell(int userID)
         {
             // lookup user by user id and return shell name
-            // TODO
+            // validate userID exists
+            User u = usersById.ContainsKey(userID) ? usersById[userID] : throw new Exception("User doesn't exist by that ID!");
 
-            return null;
+            return u.shell;
         }
     }
 }
