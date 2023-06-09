@@ -18,8 +18,8 @@ namespace SimpleShell
         {
             //TestTerminalDriver();
             //TestTerminal();
-            TestSecuritySystem();
-            //TestSessionManager();
+            //TestSecuritySystem();
+            TestSessionManager();
         }
 
         #region terminal driver

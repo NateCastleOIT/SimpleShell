@@ -8,6 +8,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using SimpleFileSystem;
+using System.Xml.Linq;
 
 
 namespace SimpleShell
@@ -48,15 +49,80 @@ namespace SimpleShell
         private void LoadPasswordFile()
         {
             // Read all users from the password file
-            // userID;username;password;homedir;shell
-            // TODO
+            // file contains one user per line where a line contains:
+            //      userID;username;password;homedir;shell
+
+            // find the password file
+            File f = filesystem.Find(passwordFileName) as File;
+
+            if (f == null)
+                throw new Exception("Password file not found!");
+
+            // open a file stream, read each line, split the file into lines, close the file stream
+            FileStream fs = f.Open();
+
+            byte[] contents = fs.Read(0, f.Length);
+
+            string[] lines = Encoding.ASCII.GetString(contents).Split('\n');
+
+            fs.Close();
+
+            // process users...
+            foreach (string line in lines)
+            {
+                // userID;username;password;homedir;shell
+                string[] parts = line.Split(';');
+
+                if (parts.Length == 5)
+                {
+                    User u = new User();
+                    u.userID = int.Parse(parts[0]);
+                    u.userName = parts[1];
+                    u.password = parts[2];
+                    u.homeDirectory = parts[3];
+                    u.shell = parts[4];
+
+                    // save the user
+                    usersById[u.userID] = u;
+
+                    // update nextUserID
+                    if (u.userID >= nextUserID)
+                        nextUserID = u.userID + 1;
+                }
+            }
         }
 
         private void SavePasswordFile()
         {
             // Save all users to the password file
             // userID;username;password;homedir;shell
-            // TODO
+            // file contains one user per line where a line contains:
+            //      userID;username;password;homedir;shell
+
+            // find the password file
+            File f = filesystem.Find(passwordFileName) as File;
+
+            if (f == null)
+            {
+                throw new Exception("Password file not found!");
+            }
+
+            // create a string containing all users
+            string lines = "";
+            foreach(User user in usersById.Values)
+            {
+                // encode user as a string
+                lines += $"{user.userID};{user.userName};{user.password};{user.homeDirectory};{user.shell}\n";
+            }
+
+            // open a file stream
+            FileStream fs = f.Open();
+
+            byte[] contents = Encoding.ASCII.GetBytes(lines);
+            fs.Write(0, contents);
+
+            // close the file stream
+            fs.Close();
         }
 
         private User UserByName(string username)
@@ -84,13 +150,22 @@ namespace SimpleShell
 
             if (filesystem != null)
             {
-                // TODO: create user's home directory
+                // create user's home directory
+                Directory userDir = filesystem.Find("/users") as Directory;
+                if (filesystem.Find(u.homeDirectory) == null)
+                {
+                    if (userDir == null)
+                    {
+                        userDir = filesystem.GetRootDirectory().CreateDirectory("/users");
+                    }
+                    userDir.CreateDirectory(username);
+                }
+
+                // save password file
+                SavePasswordFile();
             }
 
-            // save the user to the password file
-
-            // return user id
-            return nextUserID;
+            return userId;
         }
 
         public int UserID(string username)
@@ -123,7 +198,7 @@ namespace SimpleShell
 
             u.password = password;
 
-            //TODO: save it to the password file
+            SavePasswordFile();
         }
 
         public int Authenticate(string username, string password)
@@ -151,7 +226,6 @@ namespace SimpleShell
         public string UserHomeDirectory(int userID)
         {
             // lookup user by user id and return home directory
-            // TODO
             // validate userID exists
             User u = usersById.ContainsKey(userID) ? usersById[userID] : throw new Exception("User doesn't exist by that ID!");
 

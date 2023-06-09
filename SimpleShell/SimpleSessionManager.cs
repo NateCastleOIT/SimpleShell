@@ -32,9 +32,12 @@ namespace SimpleShell
                 this.terminal = terminal;
                 this.userID = userID;
 
-                // TODO
                 // get user's home directory
+                homeDir = filesystem.Find(security.UserHomeDirectory(userID)) as Directory;
+
                 // identify user's shell
+                shell = shells.CreateShell(security.UserPreferredShell(userID), this);
+
             }
 
             public int UserID => userID;
@@ -56,6 +59,7 @@ namespace SimpleShell
             }
         }
 
+        private int MAX_TRIES = 3;
         private SecuritySystem security;
         private FileSystem filesystem;
         private ShellFactory shells;
@@ -69,17 +73,72 @@ namespace SimpleShell
 
         public Session NewSession(Terminal terminal)
         {
-            // TODO
             // ask the user to login
             // give them 3 tries
-                // prompt for user name
-                // determine if the user needs to set their password
-                    // prompt for new password
-                    // return them to the login prompt
-                // prompt for password
-                // authenticate user
-                // create a new session and return it
-                
+            int tries = 0;
+            while (tries < MAX_TRIES)
+            {
+                try
+                {
+
+                    // prompt for user name
+                    terminal.Echo = true;
+                    terminal.Write("username: ");
+                    string username = terminal.ReadLine();
+
+                    // determine if the user needs to set their password
+                    if (security.NeedsPassword(username))
+                    {
+                        // prompt for new password
+                        terminal.Write("new password: ");
+                        terminal.Echo = false;
+                        string password = terminal.ReadLine();
+                        terminal.Echo = true;
+                        terminal.WriteLine("");
+
+
+                        // save the new password
+                        security.SetPassword(username, password);
+
+                        // return them to the login prompt to login with their new password
+                    }
+                    else
+                    {
+                        // prompt for new password
+                        terminal.Write("password: ");
+                        terminal.Echo = false;
+                        string password = terminal.ReadLine();
+                        terminal.Echo = true;
+                        terminal.WriteLine("");
+
+                        // authenticate user
+                        int userID = security.Authenticate(username, password);
+
+                        // create a new session and return it
+                        return new SimpleSession(security, filesystem, shells, terminal, userID);
+                    }
+                }
+                catch(Exception e)
+                {
+                    // use up a try
+                    tries++;
+
+                    // report the error
+                    terminal.WriteLine(e.Message);
+
+                    // give them another chance
+                    if (tries < MAX_TRIES)
+                    {
+                        terminal.WriteLine("Try again...");
+                    }
+                    // too many tries, give up
+                    else
+                    {
+                        terminal.WriteLine("Too many failed attempts, goodbye!");
+                    }
+                }
+            }
+
             // user failed authentication too many times
             
             return null;

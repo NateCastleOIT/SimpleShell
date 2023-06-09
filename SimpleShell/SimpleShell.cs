@@ -45,7 +45,9 @@ namespace SimpleShell
             running = false;
 
             AddCmd(new ExitCmd(this));
-            // TODO add more commands
+            AddCmd(new PrintWorkingDirectoryCmd(this));
+            AddCmd(new ChangeDirectoryCmd(this));
+            AddCmd(new ListDirectoryCmd(this));
         }
 
         private void AddCmd(Cmd c) { cmds[c.Name] = c; }
@@ -56,11 +58,31 @@ namespace SimpleShell
             // expects terminal to already be connected
 
             // set the initial current working directory
+            cwd = session.HomeDirectory;
 
             // main loop...
-            // print command prompt
-            // get command line
-            // identify and execute command
+            running = true;
+            while (running)
+            {
+                // print command prompt
+                terminal.Write(cwd.FullPathName + ">");
+
+                // get command line
+                string cmdline = terminal.ReadLine().Trim();
+
+                // identify and execute command
+                string[] args = cmdline.Split(' ');
+
+                if (cmds.ContainsKey(args[0]))
+                {
+                    cmds[args[0]].Execute(args);
+                }
+                else
+                {
+                    // invalid command
+                    terminal.WriteLine("Unknown command: " + args[0]);
+                }
+            }
 
         }
 
@@ -85,8 +107,96 @@ namespace SimpleShell
             }
         }
 
-        // TODO  more commands here
+        private class PrintWorkingDirectoryCmd : Cmd
+        {
+            public PrintWorkingDirectoryCmd(SimpleShell shell) : base("pwd", shell) { }
+            public override void Execute(string[] args)
+            {
+                Terminal.WriteLine(Shell.cwd.FullPathName);
+            }
+            override public string HelpText { get { return "Prints the current working directory"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: pwd");
+            }
+        }
 
+        private class ChangeDirectoryCmd : Cmd
+        {
+            public ChangeDirectoryCmd(SimpleShell shell) : base("cd", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length != 2)
+                    {
+                        PrintUsage();
+                    }
+
+                    string path = args[1];
+                    // TODO: qualitfy partial paths
+                    // TODO: what if path is a file?
+                    FSEntry entry = FileSystem.Find(path);
+                    if (entry == null)
+                    {
+                        throw new Exception("Directory not found: " + args[1]);
+                    }
+                        
+                    if (entry.IsFile)
+                    {
+                        throw new Exception("Path must be a directory: " + args[1]);
+                    }
+                    Shell.cwd = entry as Directory;
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                }
+            }
+            override public string HelpText { get { return "Changes the current working directory"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: cd <directory>");
+            }
+        }
+
+        private class ListDirectoryCmd : Cmd
+        {
+            public ListDirectoryCmd(SimpleShell shell) : base("ls", shell) { }
+            public override void Execute(string[] args)
+            {
+                Directory dir;
+                
+                if (args.Length == 1)
+                {
+                    dir = FileSystem.Find(Shell.cwd.FullPathName) as Directory;
+                }
+                else
+                {
+                    dir = FileSystem.Find(args[1]) as Directory;
+                }
+
+                if (dir == null)
+                {
+                    Terminal.WriteLine("Directory not found: " + args[1]);
+                }
+                else
+                {
+                    // flatten files and subdirectories into a single list
+                    IEnumerable<FSEntry> entries = (dir.GetSubDirectories() as IEnumerable<FSEntry>).Concat(dir.GetFiles());
+
+                    foreach (FSEntry entry in entries)
+                    {
+                        Terminal.WriteLine(entry.Name);
+                    }
+                }
+            }
+            override public string HelpText { get { return "Lists the contents of a directory"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: ls <directory>");
+            }
+        }
         #endregion
     }
 }
