@@ -30,6 +30,66 @@ namespace SimpleShell
             abstract public void Execute(string[] args);
             virtual public string HelpText { get { return ""; } }
             virtual public void PrintUsage() { Terminal.WriteLine("Help not available for this command"); }
+            protected string MakeFullPath(string path)
+            {
+                if (path.StartsWith("/"))
+                {
+                    return path;
+                }
+
+                // modify the cwd using the path
+                List<string> cwdParts = new List<string>(Shell.cwd.FullPathName.Split('/'));
+                if (cwdParts.Count == 2 && cwdParts[1] == "")
+                {
+                    cwdParts.RemoveAt(1);
+                }
+
+                string[] pathParts = path.Split('/');
+
+
+                try
+                {
+                    // add cwd parts
+                    foreach (string part in pathParts)
+                    {
+                        if (part == ".")
+                        {
+                            continue;
+                        }
+                        else if (part == "..")
+                        {
+                            if (cwdParts.Count == 1)
+                            {
+                                throw new Exception("No parent directory!");
+                            }
+                            cwdParts.RemoveAt(cwdParts.Count - 1);
+                        }
+                        else
+                        {
+                            // descend
+                            cwdParts.Add(part);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+
+                if (cwdParts.Count == 0)
+                {
+                    return "/";
+                }
+                else if (cwdParts.Count == 1)
+                {
+                    return "/" + cwdParts[0];
+                }
+                else
+                {
+                    return string.Join("/", cwdParts);
+                }
+            }
         }
 
         private Session session;
@@ -48,6 +108,7 @@ namespace SimpleShell
             AddCmd(new PrintWorkingDirectoryCmd(this));
             AddCmd(new ChangeDirectoryCmd(this));
             AddCmd(new ListDirectoryCmd(this));
+            AddCmd(new HelpCmd(this));
         }
 
         private void AddCmd(Cmd c) { cmds[c.Name] = c; }
@@ -130,27 +191,36 @@ namespace SimpleShell
                 {
                     if (args.Length != 2)
                     {
-                        PrintUsage();
+                        throw new Exception("Expect only 1 argument!");
                     }
 
                     string path = args[1];
-                    // TODO: qualitfy partial paths
-                    // TODO: what if path is a file?
+                    
+                    path = MakeFullPath(path);
+
+                    // find the directory
                     FSEntry entry = FileSystem.Find(path);
+
+
+                    // throw error if entry not found
                     if (entry == null)
                     {
                         throw new Exception("Directory not found: " + args[1]);
                     }
-                        
+                    
+                    // throw error if entry is not a directory
                     if (entry.IsFile)
                     {
                         throw new Exception("Path must be a directory: " + args[1]);
                     }
+
+                    // change cwd
                     Shell.cwd = entry as Directory;
                 }
                 catch (Exception ex)
                 {
                     Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
                 }
             }
             override public string HelpText { get { return "Changes the current working directory"; } }
@@ -158,6 +228,7 @@ namespace SimpleShell
             {
                 Terminal.WriteLine("usage: cd <directory>");
             }
+
         }
 
         private class ListDirectoryCmd : Cmd
@@ -167,34 +238,103 @@ namespace SimpleShell
             {
                 Directory dir;
                 
-                if (args.Length == 1)
+                try
                 {
-                    dir = FileSystem.Find(Shell.cwd.FullPathName) as Directory;
-                }
-                else
-                {
-                    dir = FileSystem.Find(args[1]) as Directory;
-                }
-
-                if (dir == null)
-                {
-                    Terminal.WriteLine("Directory not found: " + args[1]);
-                }
-                else
-                {
-                    // flatten files and subdirectories into a single list
-                    IEnumerable<FSEntry> entries = (dir.GetSubDirectories() as IEnumerable<FSEntry>).Concat(dir.GetFiles());
-
-                    foreach (FSEntry entry in entries)
+                    if (args.Length == 1)
                     {
-                        Terminal.WriteLine(entry.Name);
+                        dir = FileSystem.Find(Shell.cwd.FullPathName) as Directory;
                     }
+                    else
+                    {
+                        dir = FileSystem.Find(args[1]) as Directory;
+                    }
+
+                    if (dir == null)
+                    {
+                        Terminal.WriteLine("Directory not found: " + args[1]);
+                    }
+                    else
+                    {
+                        // flatten files and subdirectories into a single list
+                        //IEnumerable<FSEntry> entries = (dir.GetSubDirectories() as IEnumerable<FSEntry>).Concat(dir.GetFiles());
+
+                        //foreach (FSEntry entry in entries)
+                        //{
+                        //    Terminal.WriteLine(entry.Name);
+                        //}
+
+                        Terminal.WriteLine("");
+                        foreach (Directory d in dir.GetSubDirectories())
+                        {
+                            Terminal.WriteLine('\t' + "/" + d.Name + "/");
+                        }
+                        Terminal.WriteLine("");
+                        foreach (File f in dir.GetFiles())
+                        {
+                            Terminal.WriteLine('\t' + f.Name);
+                        }
+                        Terminal.WriteLine("");
+                    }
+                }
+                catch(Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
                 }
             }
             override public string HelpText { get { return "Lists the contents of a directory"; } }
             override public void PrintUsage()
             {
                 Terminal.WriteLine("usage: ls <directory>");
+            }
+        }
+
+        private class HelpCmd : Cmd
+        {
+            public HelpCmd(SimpleShell shell) : base("help", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    // print help text for all commands
+                    if (args.Length == 1)
+                    {
+                        // print all the commands
+                        foreach (Cmd cmd in Shell.cmds.Values)
+                        {
+                            Terminal.WriteLine(cmd.Name + " - " + cmd.HelpText);
+                        }
+                    }
+                    // print help text for a specific command
+                    else if (args.Length == 2)
+                    {
+                        string cmdName = args[1];
+                        if (Shell.cmds.ContainsKey(cmdName))
+                        {
+                            Terminal.WriteLine(Shell.cmds[cmdName].Name + " - " + Shell.cmds[cmdName].HelpText);
+                            Terminal.WriteLine(Shell.cmds[cmdName].HelpText);
+                        }
+                        else
+                        {
+                            Terminal.WriteLine("Unknown command: " + cmdName);
+                        }
+                    }
+                    // invalid number of arguments
+                    else
+                    {
+                        throw new Exception("Expect only 1 argument!");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Prints a list of the available shell commands."; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: help <cmd name>");
             }
         }
         #endregion
