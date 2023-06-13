@@ -112,6 +112,9 @@ namespace SimpleShell
             AddCmd(new MakeDirectoryCmd(this));
             AddCmd(new RemoveDirectoryCmd(this));
             AddCmd(new HeadCmd(this));
+            AddCmd(new TailCmd(this));
+            AddCmd(new WordCountCmd(this));
+
         }
 
         private void AddCmd(Cmd c) { cmds[c.Name] = c; }
@@ -441,11 +444,11 @@ namespace SimpleShell
                         throw new Exception("Expect at least 1 argument!");
                     }
                     string path = args[1];
-                    int readTo = 10;
+                    int readN = 10;
 
                     if (args.Length == 3)
                     {
-                        readTo = int.Parse(args[2]);
+                        readN = int.Parse(args[2]);
                     }
 
                     path = MakeFullPath(path);
@@ -461,8 +464,13 @@ namespace SimpleShell
                     
                     FileStream fs = file.Open();
 
+                    if (readN > file.Length)
+                    {
+                        readN = (int)file.Length;
+                    }
+
                     // print the first x chars
-                    byte[] readBytes = fs.Read(0, readTo);
+                    byte[] readBytes = fs.Read(0, readN);
                     string readString = Encoding.ASCII.GetString(readBytes);
                     Terminal.WriteLine(readString);
 
@@ -481,7 +489,131 @@ namespace SimpleShell
             }
         }
 
+        private class TailCmd : Cmd
+        {
+            public TailCmd(SimpleShell shell) : base("tail", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length == 1)
+                    {
+                        throw new Exception("Expect at least 1 argument!");
+                    }
+                    string path = args[1];
+                    int readN = 10;
+                    if (args.Length == 3)
+                    {
+                        readN = int.Parse(args[2]);
+                    }
+                    path = MakeFullPath(path);
 
+                    // find the file
+                    File file = FileSystem.Find(path) as File;
+
+                    // throw error if entry not found
+                    if (file == null)
+                    {
+                        throw new Exception("File not found: " + args[1]);
+                    }
+
+                    FileStream fs = file.Open();
+
+                    // read to the beginning
+                    if (readN > file.Length)
+                    {
+                        readN = (int)file.Length;
+                    }
+
+                    // print the first x chars
+                    byte[] readBytes = fs.Read(file.Length - readN, readN);
+                    string readString = Encoding.ASCII.GetString(readBytes);
+                    Terminal.WriteLine(readString);
+                    fs.Close();
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Prints the last 10 lines of a file"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: tail <file>");
+            }
+        }
+
+        private class WordCountCmd : Cmd
+        {
+            public WordCountCmd(SimpleShell shell) : base("wc", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length != 2)
+                    {
+                        throw new Exception("Expect only 1 argument!");
+                    }
+                    string path = args[1];
+                    path = MakeFullPath(path);
+
+                    // find the file
+                    File file = FileSystem.Find(path) as File;
+
+                    // throw error if entry not found
+                    if (file == null)
+                    {
+                        throw new Exception("File not found: " + args[1]);
+                    }
+                    FileStream fs = file.Open();
+
+                    // read to the beginning
+                    byte[] readBytes = fs.Read(0, (int)file.Length);
+                    string readString = Encoding.ASCII.GetString(readBytes);
+
+                    // count the chars, words, and lines
+                    int lineCount = 0;
+                    int wordCount = 0;
+                    int charCount = 0;
+                    bool inWord = false;
+                    foreach (char c in readString)
+                    {
+                        if (c == ' ' || c == '\n' || c == '\r' || c == '\t')
+                        {
+                            if (inWord)
+                            {
+                                wordCount++;
+                                inWord = false;
+                            }
+                            if (c == '\n')
+                            {
+                                lineCount++;
+                            }
+                        }
+                        else
+                        {
+                            inWord = true;
+                        }
+                        charCount++;
+                    }
+
+
+                    Terminal.WriteLine(lineCount.ToString() + " lines  " + wordCount.ToString() + " words  " + charCount.ToString() + " characters\t" + file.Name);
+                    fs.Close();
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Counts the number of words in a file"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: wc <file>");
+            }
+        }
         #endregion
     }
 }
