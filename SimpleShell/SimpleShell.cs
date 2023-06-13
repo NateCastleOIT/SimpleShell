@@ -109,6 +109,9 @@ namespace SimpleShell
             AddCmd(new ChangeDirectoryCmd(this));
             AddCmd(new ListDirectoryCmd(this));
             AddCmd(new HelpCmd(this));
+            AddCmd(new MakeDirectoryCmd(this));
+            AddCmd(new RemoveDirectoryCmd(this));
+            AddCmd(new HeadCmd(this));
         }
 
         private void AddCmd(Cmd c) { cmds[c.Name] = c; }
@@ -337,6 +340,148 @@ namespace SimpleShell
                 Terminal.WriteLine("usage: help <cmd name>");
             }
         }
+
+        private class MakeDirectoryCmd : Cmd
+        {
+            public MakeDirectoryCmd(SimpleShell shell) : base("mkdir", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length != 2)
+                    {
+                        throw new Exception("Expect only 1 argument!");
+                    }
+                    string path = args[1];
+
+                    // Can't use this because the FS throws an exception. FS expects relative path.
+                    //path = MakeFullPath(path);
+
+                    // find the directory
+                    FSEntry entry = FileSystem.Find(path);
+
+                    // throw error if entry not found
+                    if (entry != null)
+                    {
+                        throw new Exception("Directory already exists: " + args[1]);
+                    }
+
+                    // create the directory
+                    Directory dir = Shell.cwd.CreateDirectory(path);
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Creates a new directory"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: mkdir <directory>");
+            }
+        }
+
+        private class RemoveDirectoryCmd : Cmd
+        {
+            public RemoveDirectoryCmd(SimpleShell shell) : base("rmdir", shell) { }
+            public override void Execute(string[] args)
+            {
+                // I am pretty sure this will leave floating data if the directory is not empty.
+                // Seems to be fine for now. I delved into the session FS and the FS (this) immediately after the delete and it looks fine.
+                try
+                {
+                    if (args.Length != 2)
+                    {
+                        throw new Exception("Expect only 1 argument!");
+                    }
+                    string path = args[1];
+
+                    // get full path
+                    path = MakeFullPath(path);
+
+                    // find the directory
+                    FSEntry entry = FileSystem.Find(path);
+                    // throw error if entry not found
+                    if (entry == null)
+                    {
+                        throw new Exception("Directory not found: " + args[1]);
+                    }
+                    // throw error if entry is not a directory
+                    if (entry.IsFile)
+                    {
+                        throw new Exception("Path must be a directory: " + args[1]);
+                    }
+
+                    // remove the directory
+                    entry.Delete();
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Removes a directory"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: rmdir <directory>");
+            }
+        }
+
+        private class HeadCmd : Cmd
+        {
+            public HeadCmd(SimpleShell shell) : base("head", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length == 1)
+                    {
+                        throw new Exception("Expect at least 1 argument!");
+                    }
+                    string path = args[1];
+                    int readTo = 10;
+
+                    if (args.Length == 3)
+                    {
+                        readTo = int.Parse(args[2]);
+                    }
+
+                    path = MakeFullPath(path);
+
+                    // find the file
+                    File file = FileSystem.Find(path) as File;
+
+                    // throw error if entry not found
+                    if (file == null)
+                    {
+                        throw new Exception("File not found: " + args[1]);
+                    }
+                    
+                    FileStream fs = file.Open();
+
+                    // print the first x chars
+                    byte[] readBytes = fs.Read(0, readTo);
+                    string readString = Encoding.ASCII.GetString(readBytes);
+                    Terminal.WriteLine(readString);
+
+                    fs.Close();
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Prints the first 10 lines of a file"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: head <file>");
+            }
+        }
+
+
         #endregion
     }
 }

@@ -55,7 +55,7 @@ namespace SimpleShell
 
             public void Logout()
             {
-                // Nothing additional to do here, everything related to the session is cleaned up by garbage collection
+                // Nothing additional to do here, everything related to the session is cleaned up by garbage collectionq
             }
         }
 
