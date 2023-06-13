@@ -114,7 +114,7 @@ namespace SimpleShell
             AddCmd(new HeadCmd(this));
             AddCmd(new TailCmd(this));
             AddCmd(new WordCountCmd(this));
-
+            AddCmd(new MoveCmd(this));
         }
 
         private void AddCmd(Cmd c) { cmds[c.Name] = c; }
@@ -208,13 +208,13 @@ namespace SimpleShell
                     FSEntry entry = FileSystem.Find(path);
 
 
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (entry == null)
                     {
                         throw new Exception("Directory not found: " + args[1]);
                     }
                     
-                    // throw error if entry is not a directory
+                    // throw error if source is not a directory
                     if (entry.IsFile)
                     {
                         throw new Exception("Path must be a directory: " + args[1]);
@@ -262,11 +262,11 @@ namespace SimpleShell
                     else
                     {
                         // flatten files and subdirectories into a single list
-                        //IEnumerable<FSEntry> entries = (dir.GetSubDirectories() as IEnumerable<FSEntry>).Concat(dir.GetFiles());
+                        //IEnumerable<FSEntry> entries = (dest.GetSubDirectories() as IEnumerable<FSEntry>).Concat(dest.GetFiles());
 
-                        //foreach (FSEntry entry in entries)
+                        //foreach (FSEntry source in entries)
                         //{
-                        //    Terminal.WriteLine(entry.Name);
+                        //    Terminal.WriteLine(source.Name);
                         //}
 
                         Terminal.WriteLine("");
@@ -363,7 +363,7 @@ namespace SimpleShell
                     // find the directory
                     FSEntry entry = FileSystem.Find(path);
 
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (entry != null)
                     {
                         throw new Exception("Directory already exists: " + args[1]);
@@ -405,12 +405,12 @@ namespace SimpleShell
 
                     // find the directory
                     FSEntry entry = FileSystem.Find(path);
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (entry == null)
                     {
                         throw new Exception("Directory not found: " + args[1]);
                     }
-                    // throw error if entry is not a directory
+                    // throw error if source is not a directory
                     if (entry.IsFile)
                     {
                         throw new Exception("Path must be a directory: " + args[1]);
@@ -456,7 +456,7 @@ namespace SimpleShell
                     // find the file
                     File file = FileSystem.Find(path) as File;
 
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (file == null)
                     {
                         throw new Exception("File not found: " + args[1]);
@@ -511,7 +511,7 @@ namespace SimpleShell
                     // find the file
                     File file = FileSystem.Find(path) as File;
 
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (file == null)
                     {
                         throw new Exception("File not found: " + args[1]);
@@ -561,7 +561,7 @@ namespace SimpleShell
                     // find the file
                     File file = FileSystem.Find(path) as File;
 
-                    // throw error if entry not found
+                    // throw error if source not found
                     if (file == null)
                     {
                         throw new Exception("File not found: " + args[1]);
@@ -612,6 +612,56 @@ namespace SimpleShell
             override public void PrintUsage()
             {
                 Terminal.WriteLine("usage: wc <file>");
+            }
+        }
+
+        private class MoveCmd : Cmd
+        {
+            public MoveCmd(SimpleShell shell) : base("mv", shell) { }
+            public override void Execute(string[] args)
+            {
+                try
+                {
+                    if (args.Length != 3)
+                    {
+                        throw new Exception("Expect 2 arguments!");
+                    }
+                    string path1 = args[1];
+                    string path2 = args[2];
+                    path1 = MakeFullPath(path1);
+                    path2 = MakeFullPath(path2);
+
+                    // find the source
+                    FSEntry source = FileSystem.Find(path1);
+
+                    // throw error if source not found
+                    if (source == null)
+                    {
+                        throw new Exception("Source entry not found: " + args[1]);
+                    }
+
+                    // find the destination
+                    FSEntry dest = FileSystem.Find(path2);
+
+                    // throw error if source not found
+                    if (dest == null)
+                    {
+                        throw new Exception("Destination entry not found: " + args[2]);
+                    }
+
+                    // move the source
+                    source.Move(dest as Directory);
+                }
+                catch (Exception ex)
+                {
+                    Terminal.WriteLine("Error: " + ex.Message);
+                    PrintUsage();
+                }
+            }
+            override public string HelpText { get { return "Moves a file"; } }
+            override public void PrintUsage()
+            {
+                Terminal.WriteLine("usage: mv <file> <directory>");
             }
         }
         #endregion
